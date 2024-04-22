@@ -1,0 +1,130 @@
+import tkinter as tk
+from tkinter import messagebox, filedialog
+import boto3
+
+# Function to fetch AWS S3 buckets
+def list_buckets():
+    try:
+        # Initialize Boto3 client
+        s3 = boto3.client('s3')
+
+        # Retrieve list of buckets
+        response = s3.list_buckets()
+
+        # Extract bucket names
+        buckets = [bucket['Name'] for bucket in response['Buckets']]
+
+        return buckets
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+        return []
+
+# Function to display bucket contents
+def show_bucket_contents(bucket_name):
+    try:
+        # Initialize Boto3 client
+        s3 = boto3.client('s3')
+
+        # Retrieve list of objects in the bucket
+        response = s3.list_objects_v2(Bucket=bucket_name)
+
+        # Extract object names
+        objects = [obj['Key'] for obj in response.get('Contents', [])]
+
+        # Display object names in a message box
+        messagebox.showinfo(f"Objects in {bucket_name}", "\n".join(objects))
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+# Function to upload a file to the bucket
+def upload_file(bucket_name):
+    try:
+        # Initialize Tkinter file dialog
+        file_path = filedialog.askopenfilename()
+
+        if file_path:
+            # Initialize Boto3 client
+            s3 = boto3.client('s3')
+
+            # Upload the file to the bucket
+            s3.upload_file(file_path, bucket_name, file_path.split('/')[-1])
+
+            messagebox.showinfo("Success", "File uploaded successfully")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+# Function to delete an object from the bucket
+def delete_object(bucket_name, object_name):
+    try:
+        # Initialize Boto3 client
+        s3 = boto3.client('s3')
+
+        # Delete the object from the bucket
+        s3.delete_object(Bucket=bucket_name, Key=object_name)
+
+        messagebox.showinfo("Success", "Object deleted successfully")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {str(e)}")
+
+# Function to handle button click event
+def on_button_click(bucket_name):
+    action = action_var.get()
+
+    if action == "View Contents":
+        show_bucket_contents(bucket_name)
+    elif action == "Upload File":
+        upload_file(bucket_name)
+    elif action == "Delete Object":
+        object_name = object_name_var.get()
+
+        if not object_name:
+            messagebox.showwarning("Warning", "Please enter the object name to delete")
+        else:
+            delete_object(bucket_name, object_name)
+
+# Initialize Tkinter window
+root = tk.Tk()
+root.title("AWS S3 Bucket Viewer")
+
+# Fetch AWS S3 buckets
+buckets = list_buckets()
+
+if not buckets:
+    messagebox.showwarning("No Buckets", "There are no S3 buckets available in your AWS account.")
+    root.destroy()  # Close the Tkinter window if there are no buckets
+
+else:
+    # Create and configure Tkinter widgets
+    bucket_label = tk.Label(root, text="Select Bucket:")
+    bucket_label.grid(row=0, column=0, padx=5, pady=5)
+
+    bucket_var = tk.StringVar(root)
+    bucket_var.set(buckets[0])  # Set default value
+    bucket_dropdown = tk.OptionMenu(root, bucket_var, *buckets)
+    bucket_dropdown.grid(row=0, column=1, padx=5, pady=5)
+
+    action_label = tk.Label(root, text="Select Action:")
+    action_label.grid(row=1, column=0, padx=5, pady=5)
+
+    actions = ["View Contents", "Upload File", "Delete Object"]
+    action_var = tk.StringVar(root)
+    action_var.set(actions[0])  # Set default value
+    action_dropdown = tk.OptionMenu(root, action_var, *actions)
+    action_dropdown.grid(row=1, column=1, padx=5, pady=5)
+
+    object_name_label = tk.Label(root, text="Object Name (for deletion):")
+    object_name_label.grid(row=2, column=0, padx=5, pady=5)
+
+    object_name_var = tk.StringVar(root)
+    object_name_entry = tk.Entry(root, textvariable=object_name_var)
+    object_name_entry.grid(row=2, column=1, padx=5, pady=5)
+
+    button = tk.Button(root, text="Execute Action", command=lambda: on_button_click(bucket_var.get()))
+    button.grid(row=3, columnspan=2, padx=5, pady=5)
+
+    # Run the Tkinter event loop
+    root.mainloop()
